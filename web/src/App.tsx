@@ -61,8 +61,30 @@ function Overview({ go, toast }: { go: (t: Tab) => void; toast: (m: string) => v
   const utilTotal = stats.utilization?.reduce((x: any, u: any) => x + u.utilization, 0) || 0;
   const utilAvg = stats.utilization?.length ? Math.round(utilTotal / stats.utilization.length) : 0;
 
+  const origin = window.location.origin;
+  const copy = async (text: string) => {
+    try { await navigator.clipboard.writeText(text); toast('已复制'); }
+    catch { toast('复制失败, 请手动选择'); }
+  };
+  const endpoints = [
+    { label: 'OpenAI 兼容', url: `${origin}/wire/openai/v1` },
+    { label: 'Anthropic 兼容', url: `${origin}/wire/anthropic/v1` },
+  ];
+
   return (
     <div className="grid">
+      <div className="card" style={{ gridColumn: '1 / -1' }}>
+        <h2>接入端点</h2>
+        <div className="hint" style={{ marginBottom: '.6rem' }}>把客户端的 base_url 指向下面地址; API key 填任意非空字符串, 代理会自动注入池内真 key 并轮换.</div>
+        {endpoints.map((e) => (
+          <div key={e.label} className="row" style={{ marginBottom: '.4rem' }}>
+            <span className="badge neutral" style={{ minWidth: '6.5em', textAlign: 'center' }}>{e.label}</span>
+            <code style={{ flex: 1 }}>{e.url}</code>
+            <button className="btn" style={{ padding: '.2rem .6rem' }} onClick={() => copy(e.url)}>复制</button>
+          </div>
+        ))}
+      </div>
+
       <div className="card">
         <h2>池状态</h2>
         <div className="metric">
