@@ -76,8 +76,13 @@ function buildUpstreamUrl(acc: Account, meta: RequestMeta, env: Env): string {
   if (rel.startsWith('/wire/openai')) rel = rel.slice('/wire/openai'.length) || '/v1/chat/completions';
   else if (rel.startsWith('/wire/anthropic')) rel = rel.slice('/wire/anthropic'.length) || '/v1/messages';
 
-  // 拼接
+  // 拼接。若 base 已含版本前缀 (如 https://xxx/v1) 而 rel 又以同一前缀开头,
+  // 去重, 避免 /v1/v1/chat/completions 这类 404。
   const baseTrimmed = base.replace(/\/+$/, '');
+  const vm = baseTrimmed.match(/\/v\d+$/);
+  if (vm && (rel === vm[0] || rel.startsWith(vm[0] + '/'))) {
+    rel = rel.slice(vm[0].length) || '/';
+  }
   return `${baseTrimmed}${rel}`;
 }
 
