@@ -33,14 +33,17 @@ const UPSTREAM_PATHS: Record<string, { provider: string; getUrl: () => string }>
 const MAX_FAILOVER = 4;
 const CLIENT_ABORT_MSG = 'clankermux: client aborted stream';
 // 首字节超时默认值 (秒): 上游在该时间内未返回响应头 -> 视为该 key 卡死, 熔断并换 key。
-// 可通过环境变量 TIMEOUT_FIRST_BYTE_SECONDS 覆盖。一旦响应头到达 (流式开始), 不再受此限制。
+// 解析优先级: 管理面板设置 (DB settings) > 环境变量 TIMEOUT_FIRST_BYTE_SECONDS > 默认 60。
+// 一旦响应头到达 (流式开始), 不再受此限制。
 const DEFAULT_FIRST_BYTE_TIMEOUT_S = 60;
 // 超时熔断冷却: 卡死的 key 短暂隔离, 让同请求立即换 key, 也避免下个请求继续排队等它
 const FIRST_BYTE_COOLDOWN_MS = 60 * 1000;
 const UPSTREAM_TIMEOUT_MSG = 'clankermux: upstream first-byte timeout';
 
-function firstByteTimeoutMs(env: Env): number {
-  const n = Number(env.TIMEOUT_FIRST_BYTE_SECONDS);
+// 超时阈值 (秒) 解析: 管理面板设置 (DB settings) > 环境变量 > 默认 60。
+// settings 键 timeout_first_byte_seconds 由「轮换策略」面板读写。
+function firstByteTimeoutMs(env: Env, stored: unknown): number {
+  const n = Number(stored ?? env.TIMEOUT_FIRST_BYTE_SECONDS);
   return Number.isFinite(n) && n > 0 ? n * 1000 : DEFAULT_FIRST_BYTE_TIMEOUT_S * 1000;
 }
 
@@ -254,7 +257,7 @@ export async function proxyRequest(
     let occurred = 0;
     try {
       const t1 = Date.now();
-      upstreamRes = await fetchWithFirstByteTimeout(url, init, firstByteTimeoutMs(env));
+      upstreamRes = await fetchWithFirstByteTimeout(url, init, firstByteTimeoutMs(env, await db.getSetting('timeout_first_byte_seconds')));
       occurred = Date.now() - t1;
     } catch (err: any) {
       const isTimeout = err?.name === 'TimeoutError';

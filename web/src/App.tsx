@@ -330,8 +330,9 @@ function Strategy({ toast }: { toast: (m: string) => void }) {
           <label>529 熔断 cooldown (秒) <input type="number" {...set('cooldown_529_seconds')} style={{ width: '80px' }} /></label>
           <label>探测失败退避 (秒) <input type="number" {...set('probe_backoff_seconds')} style={{ width: '80px' }} /></label>
           <label>最大故障转移次数 <input type="number" {...set('max_failover')} style={{ width: '80px' }} /></label>
+          <label>超时阈值 (秒) <input type="number" {...set('timeout_first_byte_seconds')} style={{ width: '80px' }} /></label>
         </div>
-        <div className="hint">429/529 会触发账户熔断, 该账户在 cooldown 内不再被选中; 到期后由单飞探测验证是否恢复. 探测失败按退避延后.</div>
+        <div className="hint">429/529 会触发账户熔断, 该账户在 cooldown 内不再被选中; 到期后由单飞探测验证是否恢复. 探测失败按退避延后. 超时阈值: 上游超过该时间未返回响应头则熔断该 key 并立即换下一个 (仅计首字节, 流式开始后不限).</div>
       </div>
 
       <div className="card">

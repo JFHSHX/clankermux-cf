@@ -33,6 +33,7 @@ const STRATEGY_DEFAULTS: Record<string, unknown> = {
   cooldown_529_seconds: 30,
   probe_backoff_seconds: 60,
   max_failover: 4,
+  timeout_first_byte_seconds: 60,
   burst_retry_enabled: 'true',
   openai_upstream: 'https://api.openai.com/v1',
   anthropic_upstream: 'https://api.anthropic.com',
