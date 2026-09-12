@@ -442,6 +442,12 @@ function Usage() {
 }
 
 // ---------- 可用模型 ----------
+// 把 context length 格式化为易读单位 (B / KB / MB)
+function fmtContext(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(n % 1_000_000 === 0 ? 0 : 1)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(n % 1_000 === 0 ? 0 : 1)}K`;
+  return String(n);
+}
 function Models({ toast }: { toast: (m: string) => void }) {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -482,12 +488,13 @@ function Models({ toast }: { toast: (m: string) => void }) {
           )}
         </div>
         <table style={{ marginTop: '.8rem' }}>
-          <thead><tr><th>模型 ID</th><th>支持的 Key</th><th>数量</th></tr></thead>
+          <thead><tr><th>模型 ID</th><th>上下文长度</th><th>支持的 Key</th><th>数量</th></tr></thead>
           <tbody>
-            {models.length === 0 && <tr><td colSpan={3} className="muted">无匹配模型</td></tr>}
+            {models.length === 0 && <tr><td colSpan={4} className="muted">无匹配模型</td></tr>}
             {models.map((m: any) => (
               <tr key={m.id}>
                 <td><code>{m.id}</code></td>
+                <td>{m.context_length ? fmtContext(m.context_length) : <span className="muted">—</span>}</td>
                 <td>{m.accounts.map((a: string) => <span key={a} className="badge ok" style={{ marginRight: '.3rem' }}>{a}</span>)}</td>
                 <td>{m.accounts.length}</td>
               </tr>
