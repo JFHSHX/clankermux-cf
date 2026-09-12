@@ -48,9 +48,19 @@ http.createServer((req, res) => {
     return;
   }
 
-  // /models
+  // /models — CONTEXT_LEN 环境变量(数字)存在时给每个条目附加 context_length, 模拟含该字段的上游
   if (url.includes('/models')) {
-    res.end(JSON.stringify({ object: 'list', data: [{ id: 'gpt-4o', object: 'model' }, { id: 'gpt-4o-mini', object: 'model' }] }));
+    const cl = process.env.CONTEXT_LEN ? Number(process.env.CONTEXT_LEN) : null;
+    const mk = (id) => (cl ? { id, object: 'model', context_length: cl } : { id, object: 'model' });
+    res.end(JSON.stringify({
+      object: 'list',
+      data: [
+        mk('gpt-4o'),
+        mk('gpt-4o-mini'),
+        mk('deepseek-ai/deepseek-v4-flash-0731'),
+        mk('custom/builtin-only'),
+      ],
+    }));
     return;
   }
 
