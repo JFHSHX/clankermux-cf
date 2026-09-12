@@ -78,12 +78,38 @@ function buildUpstreamUrl(acc: Account, meta: RequestMeta, env: Env): string {
 
   // 拼接。若 base 已含版本前缀 (如 https://xxx/v1) 而 rel 又以同一前缀开头,
   // 去重, 避免 /v1/v1/chat/completions 这类 404。
+  return composeUpstreamUrl(base, rel);
+}
+
+/** base + rel 拼接, 带 /vN 版本前缀去重 (供 /api/models 等复用) */
+export function composeUpstreamUrl(base: string, rel: string): string {
   const baseTrimmed = base.replace(/\/+$/, '');
   const vm = baseTrimmed.match(/\/v\d+$/);
   if (vm && (rel === vm[0] || rel.startsWith(vm[0] + '/'))) {
     rel = rel.slice(vm[0].length) || '/';
   }
   return `${baseTrimmed}${rel}`;
+}
+
+/** 账户上游的模型列表 URL (openai 兼容: /models; anthropic: /v1/models) */
+export function modelsUrlFor(acc: Account, env: Env): string {
+  const base =
+    acc.base_url ||
+    (acc.provider === 'anthropic'
+      ? env.UPSTREAM_ANTHROPIC ?? 'https://api.anthropic.com'
+      : env.UPSTREAM_OPENAI ?? 'https://api.openai.com/v1');
+  const baseTrimmed = base.replace(/\/+$/, '');
+  const hasVersion = /\/v\d+$/.test(baseTrimmed);
+  return hasVersion ? `${baseTrimmed}/models` : `${baseTrimmed}/v1/models`;
+}
+
+/** 账户模型列表请求的鉴权头 */
+export function modelsAuthFor(acc: Account): Record<string, string> {
+  const key = acc.api_key ?? '';
+  if (acc.provider === 'anthropic') {
+    return { 'x-api-key': key, 'anthropic-version': '2023-06-01' };
+  }
+  return { authorization: `Bearer ${key}` };
 }
 
 // 提取请求体 token 数 (仅流式/非流式 JSON 简单估算)

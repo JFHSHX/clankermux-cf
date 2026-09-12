@@ -11,7 +11,7 @@ function useToasts() {
   return { toasts, toast };
 }
 
-type Tab = 'overview' | 'accounts' | 'strategy' | 'usage';
+type Tab = 'overview' | 'accounts' | 'strategy' | 'usage' | 'models';
 
 export default function App() {
   const [tab, setTab] = useState<Tab>('overview');
@@ -28,6 +28,7 @@ export default function App() {
           <button className={tab === 'accounts' ? 'active' : ''} onClick={() => go('accounts')}>Key 池</button>
           <button className={tab === 'strategy' ? 'active' : ''} onClick={() => go('strategy')}>轮换策略</button>
           <button className={tab === 'usage' ? 'active' : ''} onClick={() => go('usage')}>用量 & 日志</button>
+          <button className={tab === 'models' ? 'active' : ''} onClick={() => go('models')}>可用模型</button>
         </nav>
       </header>
       <main>
@@ -35,6 +36,7 @@ export default function App() {
         {tab === 'accounts' && <Accounts toast={toast} />}
         {tab === 'strategy' && <Strategy toast={toast} />}
         {tab === 'usage' && <Usage />}
+        {tab === 'models' && <Models toast={toast} />}
       </main>
       {toasts.map((t, i) => <div key={i} className="toast">{t}</div>)}
     </div>
@@ -412,6 +414,76 @@ function Usage() {
             ))}
           </tbody>
         </table>
+      </div>
+    </div>
+  );
+}
+
+// ---------- 可用模型 ----------
+function Models({ toast }: { toast: (m: string) => void }) {
+  const [data, setData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [filter, setFilter] = useState('');
+
+  const load = useCallback(async (refresh = false) => {
+    refresh ? setRefreshing(true) : setLoading(true);
+    try {
+      setData(await api.models(refresh));
+      if (refresh) toast('已从各上游刷新');
+    } catch (e: any) { toast(`获取模型失败: ${e.message}`); }
+    finally { setLoading(false); setRefreshing(false); }
+  }, [toast]);
+
+  useEffect(() => { load(); }, [load]);
+
+  if (loading) return <div className="muted">加载中…</div>;
+  if (!data) return <div className="muted">暂无数据.</div>;
+
+  const q = filter.trim().toLowerCase();
+  const models = q ? data.models.filter((m: any) => m.id.toLowerCase().includes(q)) : data.models;
+
+  return (
+    <div className="grid">
+      <div className="card">
+        <div className="row" style={{ justifyContent: 'space-between' }}>
+          <h2 style={{ margin: 0 }}>可用模型 ({data.models.length})</h2>
+          <div className="row">
+            <input placeholder="过滤模型名…" value={filter} onChange={(e) => setFilter(e.target.value)} style={{ width: 180 }} />
+            <button className="btn" onClick={() => load(true)} disabled={refreshing}>{refreshing ? '刷新中…' : '↻ 向上游刷新'}</button>
+          </div>
+        </div>
+        <div className="hint">
+          聚合自各账户上游 /models · 缓存于 {new Date(data.fetched_at).toLocaleTimeString('zh-CN')} · 10 分钟自动过期 ·
+          {data.per_account.filter((p: any) => !p.ok).length > 0 && (
+            <> 拉取失败: {data.per_account.filter((p: any) => !p.ok).map((p: any) => `${p.account}(${p.error})`).join(', ')}</>
+          )}
+        </div>
+        <table style={{ marginTop: '.8rem' }}>
+          <thead><tr><th>模型 ID</th><th>支持的 Key</th><th>数量</th></tr></thead>
+          <tbody>
+            {models.length === 0 && <tr><td colSpan={3} className="muted">无匹配模型</td></tr>}
+            {models.map((m: any) => (
+              <tr key={m.id}>
+                <td><code>{m.id}</code></td>
+                <td>{m.accounts.map((a: string) => <span key={a} className="badge ok" style={{ marginRight: '.3rem' }}>{a}</span>)}</td>
+                <td>{m.accounts.length}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="card">
+        <h2>各账户模型数</h2>
+        <div className="metric">
+          {data.per_account.map((p: any) => (
+            <div key={p.account} className="m">
+              <div className="v">{p.ok ? p.count : '✗'}</div>
+              <div className="l">{p.account}{p.ok ? '' : ` · ${p.error}`}</div>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );

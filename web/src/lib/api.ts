@@ -49,6 +49,7 @@ export const api = {
   stats: (hours = 1) => req<any>(`/stats?hours=${hours}`),
   requests: (limit = 50) => req<any>(`/requests?limit=${limit}`),
   circuits: () => req<any>('/circuits'),
+  models: (refresh = false) => req<any>(`/models${refresh ? '?refresh=1' : ''}`),
   preview: (o: Record<string, any>) => req('/preview', { method: 'POST', body: JSON.stringify(o) }),
   resetAll: () => req('/reset-all', { method: 'POST' }),
   health: () => req('/health'),

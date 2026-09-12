@@ -5,6 +5,7 @@ import { Db } from '../lib/db';
 import { buildBalancer } from '../strategies';
 import { Eligibility } from '../strategies/eligibility';
 import { snapshotAll, doResetAll } from '../lib/durable-client';
+import { modelsUrlFor, modelsAuthFor } from '../proxy/proxy';
 import type { Account } from '../types';
 import { crypto } from './_crypto';
 
@@ -174,6 +175,90 @@ api.delete('/requests', async (c) => {
 api.get('/circuits', async (c) => {
   const snap = await snapshotAll(c.env);
   return c.json(snap);
+});
+
+// ---------- 可用模型 ----------
+// 聚合各账户上游 /models, 标注每个模型被哪些 key 支持。
+// 结果缓存在 settings (TTL 10 分钟), ?refresh=1 或 POST /models/refresh 强制刷新。
+const MODELS_CACHE_KEY = '***';
+const MODELS_CACHE_TTL_MS = 10 * 60 * 1000;
+
+interface AccountModels {
+  account: string; account_id: string; ok: boolean; error?: string;
+  models: string[]; fetched_at: number;
+}
+
+async function fetchModelsForAccount(env: Env, acc: Account): Promise<AccountModels> {
+  const base: AccountModels = {
+    account: acc.name, account_id: acc.id, ok: false, models: [], fetched_at: Date.now(),
+  };
+  if (!acc.base_url && acc.provider === 'custom') return { ...base, error: 'no base_url' };
+  try {
+    const url = modelsUrlFor(acc, env);
+    const res = await fetch(url, {
+      headers: { accept: 'application/json', ...modelsAuthFor(acc) },
+      signal: AbortSignal.timeout(15_000),
+    });
+    if (!res.ok) return { ...base, error: `upstream_${res.status}` };
+    const j: any = await res.json();
+    // OpenAI 兼容: {data:[{id}]}; Anthropic: {data:[{id}]}; 兜底: 字符串数组
+    const ids: string[] = Array.isArray(j?.data)
+      ? j.data.map((m: any) => (typeof m === 'string' ? m : m?.id)).filter(Boolean)
+      : Array.isArray(j?.models) ? j.models.filter((m: any) => typeof m === 'string') : [];
+    return { ...base, ok: true, models: [...new Set(ids)].sort() };
+  } catch (e: any) {
+    return { ...base, error: e?.name === 'TimeoutError' ? 'timeout' : String(e?.message ?? e) };
+  }
+}
+
+async function refreshAllModels(env: Env, db: Db): Promise<{ per_account: AccountModels[]; fetched_at: number }> {
+  const accounts = await db.listAccounts(false);
+  const usable = accounts.filter((a) => a.api_key || a.enc_key);
+  const perAccount = await Promise.all(usable.map((a) => fetchModelsForAccount(env, a)));
+  const result = { per_account: perAccount, fetched_at: Date.now() };
+  await db.setSetting(MODELS_CACHE_KEY, JSON.stringify(result));
+  return result;
+}
+
+function aggregateModels(data: { per_account: AccountModels[]; fetched_at: number }) {
+  const byModel = new Map<string, string[]>();
+  for (const pa of data.per_account) {
+    for (const m of pa.models) {
+      byModel.set(m, [...(byModel.get(m) ?? []), pa.account]);
+    }
+  }
+  return {
+    fetched_at: data.fetched_at,
+    models: [...byModel.entries()]
+      .sort((a, b) => (b[1].length - a[1].length) || a[0].localeCompare(b[0]))
+      .map(([id, accounts]) => ({ id, accounts })),
+    per_account: data.per_account.map((pa) => ({
+      account: pa.account, ok: pa.ok, error: pa.error ?? null, count: pa.models.length,
+    })),
+  };
+}
+
+api.get('/models', async (c) => {
+  const db = new Db(c.env.DB);
+  const refresh = c.req.query('refresh') === '1';
+  let data: { per_account: AccountModels[]; fetched_at: number } | null = null;
+  if (!refresh) {
+    const raw = await db.getSetting(MODELS_CACHE_KEY);
+    if (raw) {
+      try {
+        const parsed = JSON.parse(raw);
+        if (Date.now() - parsed.fetched_at < MODELS_CACHE_TTL_MS) data = parsed;
+      } catch { /* 缓存损坏 -> 刷新 */ }
+    }
+  }
+  if (!data) data = await refreshAllModels(c.env, db);
+  return c.json(aggregateModels(data));
+});
+
+api.post('/models/refresh', async (c) => {
+  const db = new Db(c.env.DB);
+  const data = await refreshAllModels(c.env, db);
+  return c.json(aggregateModels(data));
 });
 
 api.post('/reset-all', async (c) => {
