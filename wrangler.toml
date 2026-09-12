@@ -1,6 +1,6 @@
 # Cloudflare Workers 配置 — ClankerMux Worker
 # 单 Worker 承载: LLM 代理 (wire) + 管理 API + 前端静态资源
-name = "clankermux"
+name = "clankermux-cf"
 main = "src/index.ts"
 compatibility_date = "2024-11-01"
 
@@ -13,7 +13,7 @@ binding = "ASSETS"
 [[d1_databases]]
 binding = "DB"
 database_name = "clankermux"
-database_id = "REPLACE_WITH_YOUR_D1_DATABASE_ID"
+database_id = "7a533f99-1e4a-4f1c-9374-6389b89b9956"
 migrations_dir = "schema/migrations"
 
 # Durable Object — 429 熔断 / 单飞探测 / key 池运行时状态
