@@ -1,0 +1,34 @@
+# Cloudflare Workers 配置 — ClankerMux Worker
+# 单 Worker 承载: LLM 代理 (wire) + 管理 API + 前端静态资源
+name = "clankermux"
+main = "src/index.ts"
+compatibility_date = "2024-11-01"
+
+# 静态资源 (前端构建产物) — build 后由 wrangler 自动上传
+[assets]
+directory = "./web/dist"
+binding = "ASSETS"
+
+# D1 数据库 — 账户 / 请求历史 / 用量 / 设置
+[[d1_databases]]
+binding = "DB"
+database_name = "clankermux"
+database_id = "REPLACE_WITH_YOUR_D1_DATABASE_ID"
+migrations_dir = "schema/migrations"
+
+# Durable Object — 429 熔断 / 单飞探测 / key 池运行时状态
+[durable_objects]
+bindings = [
+  { name = "POOL_STATE", class_name = "PoolState" },
+  # 熔断状态 (per-account cooldown / 单飞探测) 由 PoolState 内部管理,
+  # 不需要单独 DO。单飞探测用 {accountId} 分片 + alarm.
+]
+
+# 熔断状态 DO 的存储后端
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["PoolState"]
+
+# ---- 环境变量 (敏感配置用 wrangler secret 或 worker 控制台) ----
+# 管理面板访问密钥 (可选; 为空则面板开放)
+# vars = { DASHBOARD_PASSWORD = "" }

@@ -1,0 +1,40 @@
+{
+  "name": "clankermux-worker",
+  "version": "1.0.0",
+  "private": true,
+  "description": "ClankerMux 的 Cloudflare Workers 重写版 — 多账户 LLM API 多路复用负载均衡代理 + key 池平衡轮换。",
+  "type": "module",
+  "scripts": {
+    "dev": "npm-run-all --parallel dev:worker dev:web",
+    "dev:worker": "wrangler dev",
+    "dev:web": "vite --config web/vite.config.ts",
+    "build:web": "vite build --config web/vite.config.ts",
+    "build": "npm run build:web",
+    "preview": "wrangler dev --local",
+    "deploy": "npm run build:web && wrangler deploy",
+    "db:migrate": "wrangler d1 migrations apply clankermux --local",
+    "db:remote": "wrangler d1 migrations apply clankermux --remote",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "hono": "^4.6.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20240925.0",
+    "@types/node": "^22.20.2",
+    "@types/react": "^18.3.11",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.2",
+    "npm-run-all": "^4.1.5",
+    "typescript": "^5.6.2",
+    "vite": "^5.4.8",
+    "wrangler": "^3.78.0"
+  },
+  "allowScripts": {
+    "esbuild@0.21.5": true,
+    "esbuild@0.17.19": true,
+    "workerd@1.20250718.0": true
+  }
+}

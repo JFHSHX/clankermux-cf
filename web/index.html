@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ClankerMux · Key 池管理</title>
+    <style>
+      :root {
+        --bg: #0f1115; --panel: #1a1e26; --panel2: #222732; --border: #2c3340;
+        --text: #e6e9ef; --muted: #8b93a5; --accent: #4f8cff; --accent2: #6ee7b7;
+        --red: #f87171; --amber: #fbbf24; --green: #34d399;
+      }
+      * { box-sizing: border-box; }
+      body { margin:0; background:var(--bg); color:var(--text); font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif; }
+      a { color: var(--accent); text-decoration: none; }
+      header { display:flex; align-items:center; gap:1rem; padding:.9rem 1.5rem; background:var(--panel); border-bottom:1px solid var(--border); position:sticky; top:0; z-index:10; }
+      header h1 { font-size:1.05rem; margin:0; font-weight:600; }
+      header nav { display:flex; gap:.25rem; margin-left:1rem; }
+      header nav button { background:transparent; border:none; color:var(--muted); padding:.45rem .8rem; border-radius:8px; cursor:pointer; font-size:.9rem; }
+      header nav button.active { background:var(--panel2); color:var(--text); }
+      main { max-width:1200px; margin:0 auto; padding:1.5rem; }
+      .grid { display:grid; gap:1.25rem; }
+      .card { background:var(--panel); border:1px solid var(--border); border-radius:12px; padding:1.1rem 1.25rem; }
+      .card h2 { margin:0 0 .9rem; font-size:1rem; font-weight:600; }
+      .muted { color:var(--muted); font-size:.85rem; }
+      .row { display:flex; gap:.5rem; align-items:center; flex-wrap:wrap; }
+      input, select, textarea, button.btn { background:var(--panel2); border:1px solid var(--border); color:var(--text); border-radius:8px; padding:.5rem .7rem; font-size:.9rem; }
+      button.btn { cursor:pointer; font-weight:500; }
+      button.btn.primary { background:var(--accent); border-color:var(--accent); color:#fff; }
+      button.btn.danger { background:var(--red); border-color:var(--red); color:#fff; }
+      button.btn.success { background:var(--green); border-color:var(--green); color:#102; }
+      button.btn:disabled { opacity:.5; cursor:not-allowed; }
+      table { width:100%; border-collapse:collapse; font-size:.88rem; }
+      th, td { text-align:left; padding:.55rem .6rem; border-bottom:1px solid var(--border); }
+      th { color:var(--muted); font-weight:500; font-size:.78rem; text-transform:uppercase; letter-spacing:.03em; }
+      .badge { display:inline-block; padding:.15rem .5rem; border-radius:999px; font-size:.72rem; font-weight:600; }
+      .badge.paused { background:rgba(248,113,113,.15); color:var(--red); }
+      .badge.circuit { background:rgba(251,191,36,.15); color:var(--amber); }
+      .badge.ok { background:rgba(52,211,153,.15); color:var(--green); }
+      .badge.neutral { background:rgba(139,147,165,.2); color:var(--muted); }
+      .bar { height:6px; background:var(--panel2); border-radius:999px; overflow:hidden; }
+      .bar > div { height:100%; background:var(--accent); }
+      .bar.warn > div { background:var(--amber); }
+      .bar.critical > div { background:var(--red); }
+      .metric { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:1rem; }
+      .metric .m { background:var(--panel2); border-radius:10px; padding:.9rem 1rem; }
+      .metric .m .v { font-size:1.5rem; font-weight:700; }
+      .metric .m .l { color:var(--muted); font-size:.8rem; }
+      .toast { position:fixed; bottom:1.2rem; right:1.2rem; background:var(--panel2); border:1px solid var(--border); padding:.7rem 1rem; border-radius:10px; box-shadow:0 8px 30px rgba(0,0,0,.4); font-size:.9rem; z-index:50; }
+      .collapsible summary { cursor:pointer; font-weight:500; }
+      .hint { font-size:.8rem; color:var(--muted); margin-top:.3rem; }
+      code { background:var(--panel2); padding:.1rem .35rem; border-radius:5px; font-size:.8rem; }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

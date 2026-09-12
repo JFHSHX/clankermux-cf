@@ -1,0 +1,23 @@
+# Node
+node_modules/
+*.local
+.DS_Store
+
+# Build outputs
+web/dist/
+dist/
+
+# Wrangler
+.wrangler/
+.dev.vars
+
+# Vite
+vite.config.ts.*.tmp*
+
+# Logs
+*.log
+
+# 环境变量 (绝不提交)
+.env
+.env.*
+!.env.example
