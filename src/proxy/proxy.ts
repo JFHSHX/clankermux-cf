@@ -32,6 +32,39 @@ const UPSTREAM_PATHS: Record<string, { provider: string; getUrl: () => string }>
 
 const MAX_FAILOVER = 4;
 const CLIENT_ABORT_MSG = 'clankermux: client aborted stream';
+// 首字节超时默认值 (秒): 上游在该时间内未返回响应头 -> 视为该 key 卡死, 熔断并换 key。
+// 可通过环境变量 TIMEOUT_FIRST_BYTE_SECONDS 覆盖。一旦响应头到达 (流式开始), 不再受此限制。
+const DEFAULT_FIRST_BYTE_TIMEOUT_S = 60;
+// 超时熔断冷却: 卡死的 key 短暂隔离, 让同请求立即换 key, 也避免下个请求继续排队等它
+const FIRST_BYTE_COOLDOWN_MS = 60 * 1000;
+const UPSTREAM_TIMEOUT_MSG = 'clankermux: upstream first-byte timeout';
+
+function firstByteTimeoutMs(env: Env): number {
+  const n = Number(env.TIMEOUT_FIRST_BYTE_SECONDS);
+  return Number.isFinite(n) && n > 0 ? n * 1000 : DEFAULT_FIRST_BYTE_TIMEOUT_S * 1000;
+}
+
+/**
+ * 带首字节超时的 fetch。signal 在 Promise 返回 (响应头到达) 后立即解绑,
+ * 之后的流式 body 读取不受 timer 影响 — 满足"60s 没响应就换 key"且不误杀长流。
+ * 超时抛出 name=TimeoutError 的异常, 由调用方识别处理。
+ */
+async function fetchWithFirstByteTimeout(url: string, init: RequestInit, timeoutMs: number): Promise<Response> {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(UPSTREAM_TIMEOUT_MSG), timeoutMs);
+  try {
+    return await fetch(url, { ...init, signal: ctrl.signal });
+  } catch (err: any) {
+    if (ctrl.signal.aborted) {
+      const e = new Error(`no response in ${Math.round(timeoutMs / 1000)}s`);
+      e.name = 'TimeoutError';
+      throw e;
+    }
+    throw err;
+  } finally {
+    clearTimeout(timer); // 响应头已到, 解除超时约束 (body 流继续读不会被 abort)
+  }
+}
 
 // 转发的安全头白名单 — 剥离 hop-by-hop 头 + Cloudflare 内部头。
 // 关键: workerd 会给入站请求加 cdn-loop/via/cf-* 头, 若原样转发到出站 fetch,
@@ -221,11 +254,18 @@ export async function proxyRequest(
     let occurred = 0;
     try {
       const t1 = Date.now();
-      upstreamRes = await fetch(url, init);
+      upstreamRes = await fetchWithFirstByteTimeout(url, init, firstByteTimeoutMs(env));
       occurred = Date.now() - t1;
     } catch (err: any) {
-      console.error(`[proxy] fetch to ${url} failed for account ${acc.id}: ${err?.message ?? 'unknown'}`);
-      lastErr = `network error: ${err?.message ?? 'unknown'}`;
+      const isTimeout = err?.name === 'TimeoutError';
+      console.error(`[proxy] fetch to ${url} ${isTimeout ? 'timed out' : 'failed'} for account ${acc.id}: ${err?.message ?? 'unknown'}`);
+      if (isTimeout) {
+        // 上游卡死: 短暂熔断该账户 (60s), 避免后续请求继续排队等它, 然后 failover 换 key
+        const until = Date.now() + FIRST_BYTE_COOLDOWN_MS;
+        await circuitBreak(env, acc.id, until, 'first_byte_timeout', 0);
+        await db.setRateLimit(acc.id, until, 'first_byte_timeout', (acc.consecutive_rate_limits ?? 0) + 1);
+      }
+      lastErr = isTimeout ? `timeout: ${err.message}` : `network error: ${err?.message ?? 'unknown'}`;
       if (acc.max_concurrent > 0) await releaseSlot(env, acc.id);
       failover++;
       continue;

@@ -13,6 +13,8 @@ export type Env = {
   // ---- 默认轮换策略 ----
   STRATEGY?: string;          // fefo | roundrobin | weighted | session
   LB_SESSION_DURATION_HOURS?: string;
+  // ---- 首字节超时 (秒): 上游超过该时间未返回响应头则换 key 重试, 默认 60 ----
+  TIMEOUT_FIRST_BYTE_SECONDS?: string;
 };
 
 export type RouteContext = {

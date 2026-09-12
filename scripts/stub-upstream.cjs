@@ -16,6 +16,15 @@ http.createServer((req, res) => {
 
   // /chat/completions
   if (url.includes('/chat/completions')) {
+    // HANG_MS: 延迟 N 毫秒才响应, 模拟上游卡死 (测首字节超时换 key)
+    const hangMs = process.env.HANG_MS ? Number(process.env.HANG_MS) : 0;
+    if (hangMs > 0) {
+      setTimeout(() => {
+        res.statusCode = 504;
+        res.end(JSON.stringify({ error: { message: 'stub hung (test)' } }));
+      }, hangMs);
+      return;
+    }
     let body = '';
     req.on('data', (c) => (body += c));
     req.on('end', () => {
