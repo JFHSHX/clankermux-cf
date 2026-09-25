@@ -89,7 +89,9 @@ function handleWire(provider: 'openai' | 'anthropic') {
     const budget5h = Number(settings.fefo_budget_5h ?? 500_000);
     const budgetWeekly = Number(settings.fefo_budget_weekly ?? 3_500_000);
 
-    const balancer = buildBalancer(strategy, sessionHours);
+    // 必须用 getBalancer (实例缓存): 轮询游标 / FEFO lastPickedAt / 会话粘性
+    // 都是实例态, 每请求新建实例会重置状态 -> 轮换永不生效, 永远选第一个 key。
+    const balancer = getBalancer(strategy, sessionHours);
     const eligibility = new Eligibility(db, { budget5h, budgetWeekly });
 
     // 组装请求元数据
