@@ -72,17 +72,18 @@ export class PoolState {
       }
       case 'try_probe': {
         const c = this.circuits.get(body.accountId);
+        // DO 无该账户的熔断记录 -> 直接允许 (D1 侧的 rate_limited_until 过期值
+        // 不构成有效熔断; 返回拒绝会让账户永久卡死, 无任何恢复路径)
+        if (!c) {
+          return json({ allowed: true, reason: 'clear' });
+        }
         // cooldown 未到期 -> 不可探测
-        if (!c || Date.now() < c.until) {
+        if (Date.now() < c.until) {
           return json({ allowed: false, reason: 'cooldown' });
         }
         // 已有探测在途 -> 拒绝 (单飞)
         if (c.probing) {
           return json({ allowed: false, reason: 'inflight' });
-        }
-        // 无熔断记录 -> 可直接请求
-        if (!c.until) {
-          return json({ allowed: true, reason: 'clear' });
         }
         // cooldown 到期, 允许一次探测, 标记 probing
         c.probing = true;

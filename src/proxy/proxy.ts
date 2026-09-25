@@ -263,10 +263,13 @@ export async function proxyRequest(
       const isTimeout = err?.name === 'TimeoutError';
       console.error(`[proxy] fetch to ${url} ${isTimeout ? 'timed out' : 'failed'} for account ${acc.id}: ${err?.message ?? 'unknown'}`);
       if (isTimeout) {
-        // 上游卡死: 短暂熔断该账户 (60s), 避免后续请求继续排队等它, 然后 failover 换 key
-        const until = Date.now() + FIRST_BYTE_COOLDOWN_MS;
+        // 上游卡死: 熔断该账户并 failover 换 key。cooldown 按连续超时次数指数退避
+        // (60s, 120s, 240s ... cap 30min), 避免死 key 每个 cooldown 窗口都被反复探测。
+        const consecutive = (acc.consecutive_rate_limits ?? 0) + 1;
+        const cooldownMs = Math.min(FIRST_BYTE_COOLDOWN_MS * Math.pow(2, consecutive - 1), 30 * 60_000);
+        const until = Date.now() + cooldownMs;
         await circuitBreak(env, acc.id, until, 'first_byte_timeout', 0);
-        await db.setRateLimit(acc.id, until, 'first_byte_timeout', (acc.consecutive_rate_limits ?? 0) + 1);
+        await db.setRateLimit(acc.id, until, 'first_byte_timeout', consecutive);
       }
       lastErr = isTimeout ? `timeout: ${err.message}` : `network error: ${err?.message ?? 'unknown'}`;
       if (acc.max_concurrent > 0) await releaseSlot(env, acc.id);
@@ -278,7 +281,14 @@ export async function proxyRequest(
     if (upstreamRes.status >= 200 && upstreamRes.status < 300) {
       if (acc.max_concurrent > 0) await releaseSlot(env, acc.id);
       // 单飞探测成功 -> 清除熔断
-      if (acc.rate_limited_until) await probeComplete(env, acc.id, true);
+      if (acc.rate_limited_until) {
+        await probeComplete(env, acc.id, true);
+        // D1 的 rate_limited_until 已过期: 成功请求证明账户健康, 清掉过期值,
+        // 否则后续每个请求都走探测路径 (DO 侧记录被 alarm 清除时白跑一趟)
+        if (acc.rate_limited_until <= Date.now()) {
+          await db.setRateLimit(acc.id, null, null, 0);
+        }
+      }
       const final = await relay(env, db, acc, meta, upstreamRes, decision, started, occurred);
       return { ...final, decision };
     }
