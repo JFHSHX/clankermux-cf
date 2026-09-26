@@ -125,3 +125,16 @@ export default app;
 
 // DO 导出 (wrangler 需要)
 export { PoolState } from './state-durable-object';
+
+// Scheduled handler: 每天凌晨自动清理 30 天前的请求日志
+export async function scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
+  if (event.cron === '0 2 * * *') {  // 每天凌晨 2:00 UTC
+    const db = new Db(env.DB);
+    try {
+      const deleted = await db.pruneRequests(30);
+      console.log(`[Scheduled] Pruned ${deleted} request logs older than 30 days`);
+    } catch (err) {
+      console.error('[Scheduled] Prune failed:', err);
+    }
+  }
+}
