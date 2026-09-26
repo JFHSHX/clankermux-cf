@@ -29,6 +29,10 @@ bindings = [
 tag = "v1"
 new_sqlite_classes = ["PoolState"]
 
+# Cron Triggers — 每天凌晨 2:00 UTC 自动清理 30 天前的请求日志
+[triggers]
+crons = ["0 2 * * *"]
+
 # ---- 环境变量 (敏感配置用 wrangler secret 或 worker 控制台) ----
 # 管理面板访问密钥 (可选; 为空则面板开放)
 # vars = { DASHBOARD_PASSWORD = "" }
