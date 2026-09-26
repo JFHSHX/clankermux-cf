@@ -253,6 +253,13 @@ export class Db {
   async clearRequests(): Promise<void> {
     await this.db.prepare('DELETE FROM requests').run();
   }
+
+  /** 仅保留最近 N 天的请求日志（默认 7 天） */
+  async pruneRequests(keepDays = 7): Promise<number> {
+    const cutoff = Date.now() - keepDays * 86400_000;
+    const res = await this.db.prepare('DELETE FROM requests WHERE timestamp < ?').bind(cutoff).run();
+    return res.meta.changes ?? 0;
+  }
 }
 
 export type { D1Result };
