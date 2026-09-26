@@ -175,7 +175,7 @@ api.delete('/requests', async (c) => {
 api.post('/requests/prune', async (c) => {
   const db = new Db(c.env.DB);
   const body = await c.req.json().catch(() => ({}));
-  const keepDays = Math.max(1, Math.min(365, parseInt(String(body.keepDays || '7'), 10)));
+  const keepDays = Math.max(1, Math.min(365, parseInt(String(body.keepDays || '30'), 10)));
   const deleted = await db.pruneRequests(keepDays);
   return c.json({ ok: true, deleted, keepDays });
 });
