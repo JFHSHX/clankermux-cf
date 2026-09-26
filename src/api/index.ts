@@ -187,24 +187,74 @@ const MODELS_CACHE_TTL_MS = 10 * 60 * 1000;
 const MODELS_CACHE_VERSION = 2;
 
 // 上游未返回 context_length 时的内置兜底表 (常见模型), 依 key 子串匹配
+// 顺序即优先级：越具体的规则放越前面
 const KNOWN_CONTEXTS: [RegExp, number][] = [
-  // NVIDIA Nemotron 系列 (NIM API 文档上下文长度)
+  // ========== NVIDIA Nemotron 系列 (NIM API) ==========
   [/nemotron-3-ultra/i, 1000000], [/nemotron-3-super/i, 1000000], [/nemotron-3-ultra-550b/i, 1000000],
   [/nemotron-4-340b/i, 1000000], [/nemotron-4/i, 1000000],
   [/nemotron-3-nano/i, 131072], [/nemotron-3/i, 131072], [/nemotron/i, 131072],
-  // DeepSeek
-  [/deepseek-v4/i, 200000], [/deepseek-v3/i, 200000], [/deepseek/i, 128000],
-  // OpenAI
+  [/nemotron-ultra-253b/i, 1000000], [/nemotron-51b/i, 131072], [/nemotron-70b/i, 131072],
+
+  // ========== DeepSeek ==========
+  [/deepseek-v4/i, 200000], [/deepseek-v3/i, 200000], [/deepseek-coder/i, 16384], [/deepseek/i, 128000],
+
+  // ========== OpenAI / GPT ==========
   [/gpt-4o/i, 128000], [/gpt-4-turbo/i, 128000], [/gpt-4/i, 8192], [/gpt-3\.5/i, 16385],
   [/o1/i, 200000], [/o3/i, 200000],
-  // Anthropic
+  [/gpt-oss/i, 131072],
+
+  // ========== Anthropic Claude ==========
   [/claude-3-5/i, 200000], [/claude-3-7/i, 200000], [/claude-3-opus/i, 200000], [/claude/i, 100000],
-  // Google
-  [/gemini/i, 1000000], [/llama-3\.1/i, 131072], [/llama-3/i, 8192], [/llama/i, 4096],
-  // Mistral
-  [/mistral-large/i, 128000], [/mistral/i, 32768],
-  // Qwen / GLM
-  [/qwen/i, 131072], [/glm/i, 128000],
+
+  // ========== Google ==========
+  [/gemini/i, 1000000],
+  [/gemma-4/i, 131072], [/gemma-3/i, 131072], [/gemma-2/i, 8192], [/gemma/i, 8192],   // Gemma 4/3: 128k, Gemma 2/1: 8k
+  [/codegemma/i, 8192], [/recurrentgemma/i, 8192], [/diffusiongemma/i, 8192],
+
+  // ========== Meta / Llama 衍生 (须在 Google llama 通用规则之前，避免 codellama 被拦截) ==========
+  [/codellama/i, 16384], [/llama-guard/i, 8192], [/muse-glimmer/i, 8192],
+
+  // ========== Google Llama 系列 ==========
+  [/llama-3\.2/i, 131072], [/llama-3\.1/i, 131072], [/llama3-/i, 131072], [/llama-3/i, 8192], [/llama-2/i, 4096], [/llama/i, 4096],
+
+  // ========== Microsoft Phi ==========
+  [/phi-3.*vision/i, 131072], [/phi-3\.5/i, 131072], [/phi-3/i, 4096], [/phi-4/i, 131072], [/phi/i, 4096],
+
+  // ========== Mistral 系列 ==========
+  [/mistral-large-2/i, 131072], [/mistral-large/i, 128000],
+  [/codestral/i, 32768], [/mistral-nemo/i, 131072], [/mistral-7b/i, 32768], [/mistral/i, 32768],
+  [/mixtral-8x22b/i, 65536], [/mixtral-8x7b/i, 32768], [/mixtral/i, 32768],
+
+  // ========== Moonshot Kimi ==========
+  [/kimi-k3/i, 200000], [/kimi-k2/i, 200000], [/kimi/i, 200000],
+
+  // ========== 01.ai Yi ==========
+  [/yi-large/i, 200000], [/yi-1\.5/i, 200000], [/yi/i, 200000],
+
+  // ========== AI21 Jamba ==========
+  [/jamba-1\.5/i, 262144], [/jamba/i, 262144],
+
+  // ========== Writer Palmyra ==========
+  [/palmyra.*32k/i, 32768], [/palmyra.*122b/i, 131072], [/palmyra/i, 32768],
+
+  // ========== IBM Granite ==========
+  [/granite-34b-code/i, 8192], [/granite-8b-code/i, 8192], [/granite-3\.0.*8b/i, 4096], [/granite-3\.0.*3b/i, 4096], [/granite/i, 4096],
+
+  // ========== Databricks DBRX ==========
+  [/dbrx/i, 32768],
+
+  // ========== Qwen ==========
+  [/qwen-2\.5/i, 131072], [/qwen-2/i, 32768], [/qwen/i, 131072],
+
+  // ========== Z.ai GLM ==========
+  [/glm-5/i, 131072], [/glm-4/i, 131072], [/glm/i, 128000],
+
+  // ========== Zyphra Zamba ==========
+  [/zamba2/i, 131072], [/zamba/i, 131072],
+
+  // ========== 其它常见 ==========
+  [/starcoder2/i, 16384], [/starcoder/i, 8192],
+  [/sea-lion/i, 4096],
 ];
 
 /** 解析单个上游 model 对象里的 context_length (OpenAI 风格 context_length / OpenRouter 风格同名字段) */
